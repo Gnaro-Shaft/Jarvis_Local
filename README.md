@@ -5,6 +5,28 @@ Vision complète : note Obsidian `02 - Projets/Jarvis Local/` (vault dGnaro).
 
 > **Local First** · l'assistant **propose**, l'utilisateur **décide** · **suppression interdite** (→ `Archive_IA`).
 
+## Installation
+
+**Prérequis**
+- Python 3.10+ (aucune dépendance externe — stdlib uniquement)
+- [Ollama](https://ollama.com) en local avec au moins un modèle :
+  ```bash
+  ollama pull qwen2.5:14b-instruct-q5_K_M   # web (rapide)
+  ollama pull qwen3:32b qwen3-coder:30b     # raisonnement / code (optionnel)
+  ```
+- *(optionnel)* [Tailscale](https://tailscale.com) + accès SSH à un serveur pour l'agent Infra et l'accès distant
+- *(optionnel)* [Mnemo](https://github.com/Gnaro-Shaft/mnemo) pour le RAG de l'agent Obsidian
+
+**Démarrage**
+```bash
+git clone https://github.com/Gnaro-Shaft/Assistant_Local.git
+cd Assistant_Local
+./jarvis                 # chat interactif
+# ou : python3 server.py   → http://localhost:8787 (interface web)
+```
+
+Configuration par variables d'environnement (modèles, hôtes, etc.) : voir [USAGE.md](USAGE.md).
+
 ## Architecture (prototype)
 
 ```
