@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+
+# État runtime de Jarvis (journal, projet actif)
+.jarvis/
+
+# Runtime / généré par ruflo & claude-flow (lourd, machine-specific)
+.claude/
+.claude-flow/
+.swarm/
+ruvector.db

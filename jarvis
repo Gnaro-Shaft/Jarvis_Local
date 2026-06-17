@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Lanceur Jarvis — utilisable depuis n'importe où.
+#   ./jarvis                  → chat interactif
+#   ./jarvis "ma question"    → réponse directe
+#   ./jarvis --history        → etc.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "$DIR/jarvis.py" "$@"
