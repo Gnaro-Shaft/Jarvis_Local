@@ -40,8 +40,10 @@ zones autorisées comme toute écriture.
 | `DEV_CTX_BUDGET` | `48000` | budget de contexte (caractères) |
 
 ## Limites (prototype)
-- Contexte = concaténation de fichiers sous budget (pas encore de RAG/sélection
-  sémantique sur le code) — suffisant pour petits/moyens projets.
+- Contexte = les fichiers **les plus pertinents pour la question** (scoring lexical :
+  correspondances nom de fichier ×5 + contenu, plafonné), sous budget. L'arborescence
+  complète est toujours fournie. → plus rapide et plus précis sur les gros projets.
+- Limite : scoring lexical (pas de stemming/embeddings) — « routage » ≠ « route ».
 - Ignore `node_modules`, `.git`, `dist`, `venv`, etc.
 - TODO : sélection de fichiers pertinents par la question, application de patchs
   *après validation*, intégration au coordinateur.

@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
+import unicodedata
 
 AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
@@ -44,32 +46,74 @@ CODE_EXT = {
 }
 PER_FILE_CAP = 6000  # caractères max lus par fichier
 
+_STOP = {
+    "le", "la", "les", "de", "des", "du", "un", "une", "et", "ou", "dans", "ce",
+    "cette", "que", "qui", "quoi", "est", "sont", "pour", "sur", "avec", "comment",
+    "quel", "quelle", "quels", "quelles", "fait", "faire", "fichier", "fichiers",
+    "code", "projet", "the", "and", "for", "with", "this", "that", "how", "what",
+}
 
-def collect_project(root: str, budget: int) -> tuple[list[str], list[tuple[str, str]]]:
-    """Retourne (arbre des fichiers, [(chemin_relatif, contenu)]) sous budget."""
-    tree: list[str] = []
-    files: list[tuple[str, str]] = []
-    spent = 0
-    # README d'abord (haute valeur), puis le reste trié.
-    paths: list[str] = []
+
+def _norm(s: str) -> str:
+    """minuscule + sans accents."""
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower())
+                    if unicodedata.category(c) != "Mn")
+
+
+def _tokenize(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9_]{3,}", _norm(text)) if t not in _STOP}
+
+
+def _score(rel: str, content: str, qtokens: set[str]) -> int:
+    """Pertinence d'un fichier vs la question : nom de fichier (fort) + contenu."""
+    fnl, cl = _norm(rel), _norm(content)
+    s = 0
+    for t in qtokens:
+        s += fnl.count(t) * 5
+        s += min(cl.count(t), 10)        # plafonne pour ne pas favoriser un gros fichier
+    return s
+
+
+def collect_project(root: str, budget: int,
+                    question: str | None = None) -> tuple[list[str], list[tuple[str, str]]]:
+    """Retourne (arbre complet, [(chemin, contenu)] des fichiers les plus pertinents).
+    Si `question` est fourni, les fichiers sont classés par pertinence (scoring lexical) ;
+    sinon README d'abord puis ordre alphabétique."""
+    cand: list[tuple[str, str]] = []  # (rel, full)
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in IGNORE_DIRS and not d.startswith("."))
         for fn in sorted(filenames):
             ext = os.path.splitext(fn)[1].lower()
             if ext in CODE_EXT or fn.lower().startswith("readme"):
-                paths.append(os.path.join(dirpath, fn))
-    paths.sort(key=lambda p: (0 if os.path.basename(p).lower().startswith("readme") else 1, p))
+                full = os.path.join(dirpath, fn)
+                cand.append((os.path.relpath(full, root), full))
+    cand.sort(key=lambda x: x[0])
+    tree = [rel for rel, _ in cand]
 
-    for full in paths:
-        rel = os.path.relpath(full, root)
-        tree.append(rel)
-        if spent >= budget:
-            continue
+    read: list[tuple[str, str]] = []
+    for rel, full in cand:
         try:
             with open(full, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read(PER_FILE_CAP + 1)
+                read.append((rel, f.read(PER_FILE_CAP + 1)))
         except OSError:
             continue
+
+    qtokens = _tokenize(question) if question else set()
+
+    def rank_key(item: tuple[str, str]):
+        rel, content = item
+        is_readme = os.path.basename(rel).lower().startswith("readme")
+        if qtokens:
+            return (-(_score(rel, content, qtokens) + (3 if is_readme else 0)), rel)
+        return (0 if is_readme else 1, rel)
+
+    read.sort(key=rank_key)
+
+    files: list[tuple[str, str]] = []
+    spent = 0
+    for rel, content in read:
+        if spent >= budget:
+            break
         truncated = len(content) > PER_FILE_CAP
         content = content[:PER_FILE_CAP]
         if spent + len(content) > budget:
@@ -92,8 +136,8 @@ def build_prompt(question: str, project: str, tree: list[str], files: list[tuple
         "comme une *proposition* (l'utilisateur validera) et n'invente pas de fichiers "
         "absents. Si l'info manque dans le contexte, dis-le.\n\n"
         f"# Projet analysé : {project}\n\n"
-        f"# Arborescence (fichiers pertinents)\n{tree_str}\n\n"
-        f"# Contenu des fichiers\n{files_str}\n\n"
+        f"# Arborescence (projet complet)\n{tree_str}\n\n"
+        f"# Contenu des fichiers les plus pertinents pour la question\n{files_str}\n\n"
         f"# Question\n{question}\n\n# Réponse :"
     )
 
@@ -103,7 +147,7 @@ def prepare(question: str, project: str = REPO_ROOT, model: str = DEV_MODEL) -> 
     project = os.path.abspath(project)
     if not os.path.isdir(project):
         return {"prompt": None, "model": model, "sources": [], "text": f"projet introuvable : {project}"}
-    tree, files = collect_project(project, CTX_BUDGET)
+    tree, files = collect_project(project, CTX_BUDGET, question)
     if not files:
         return {"prompt": None, "model": model, "sources": [], "text": f"aucun fichier analysable dans {project}"}
     return {"prompt": build_prompt(question, project, tree, files), "model": model,
@@ -114,7 +158,7 @@ def ask(question: str, project: str, model: str = DEV_MODEL) -> dict:
     project = os.path.abspath(project)
     if not os.path.isdir(project):
         return {"error": f"projet introuvable : {project}"}
-    tree, files = collect_project(project, CTX_BUDGET)
+    tree, files = collect_project(project, CTX_BUDGET, question)
     if not files:
         return {"error": f"aucun fichier de code analysable dans {project}"}
     prompt = build_prompt(question, project, tree, files)
@@ -150,7 +194,7 @@ def propose_write(target: str, instruction: str, project: str = REPO_ROOT,
     if os.path.exists(target):
         with open(target, "r", encoding="utf-8", errors="replace") as f:
             current = f.read()
-    tree, files = collect_project(project, CTX_BUDGET) if os.path.isdir(project) else ([], [])
+    tree, files = collect_project(project, CTX_BUDGET, instruction) if os.path.isdir(project) else ([], [])
     new = clean_llm_output(
         ollama_generate(build_write_prompt(target, current, instruction, project, tree, files), model=model)
     )
