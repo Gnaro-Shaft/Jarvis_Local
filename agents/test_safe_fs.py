@@ -51,7 +51,7 @@ def main() -> int:
     check(len(all_arch) >= 2, "archive : données conservées dans Archive_IA (rien perdu)")
 
     # 6. confinement : action hors zone refusée
-    for act in (safe_fs.create("/etc/evil.txt", "x"), safe_fs.archive("/Users/dgnaro/.bashrc")):
+    for act in (safe_fs.create("/etc/evil.txt", "x"), safe_fs.archive("/etc/hosts")):
         try:
             safe_fs.apply(act)
             check(False, f"confinement : {act.kind} hors zone devrait être refusé")

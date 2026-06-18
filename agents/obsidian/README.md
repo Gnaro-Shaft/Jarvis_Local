@@ -34,7 +34,7 @@ avant diff. Toute action reste confinée aux zones autorisées.
 ## Config (env)
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `MNEMO_MCP_URL` | `http://100.100.77.23:8001/mcp` | serveur MCP Mnemo (homeserv01 via Tailscale) |
+| `MNEMO_MCP_URL` | `http://localhost:8001/mcp` | serveur MCP Mnemo |
 | `OLLAMA_URL` | `http://localhost:11434` | API Ollama locale |
 | `OLLAMA_MODEL` | `qwen3:32b` | modèle de synthèse |
 

@@ -16,7 +16,7 @@ Usage:
     python3 agents/obsidian/agent.py --limit 6 --prefix "02 - Projets/Mnemo" "..."
 
 Config (env, valeurs par défaut entre parenthèses) :
-    MNEMO_MCP_URL   (http://100.100.77.23:8001/mcp)   serveur MCP Mnemo
+    MNEMO_MCP_URL   (http://localhost:8001/mcp)   serveur MCP Mnemo
     OLLAMA_URL      (http://localhost:11434)          API Ollama locale
     OLLAMA_MODEL    (qwen3:32b)                        modèle de synthèse
 """
@@ -33,7 +33,7 @@ sys.path.insert(0, AGENTS_DIR)
 from common import ollama_generate, clean_llm_output  # noqa: E402
 import safe_fs  # noqa: E402
 
-MNEMO_MCP_URL = os.environ.get("MNEMO_MCP_URL", "http://100.100.77.23:8001/mcp")
+MNEMO_MCP_URL = os.environ.get("MNEMO_MCP_URL", "http://localhost:8001/mcp")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:32b")
 
 

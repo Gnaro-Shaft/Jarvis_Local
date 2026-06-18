@@ -21,9 +21,10 @@ import re
 import subprocess
 from dataclasses import dataclass
 
-ALLOWED_HOSTS = set(
-    os.environ.get("JARVIS_ALLOWED_HOSTS", "homeserv01:localhost:local").split(":")
-)
+ALLOWED_HOSTS = {"localhost", "local"}
+ALLOWED_HOSTS |= {h for h in os.environ.get("JARVIS_ALLOWED_HOSTS", "").split(":") if h}
+if os.environ.get("JARVIS_REMOTE_HOST"):  # l'hôte distant configuré est autorisé d'office
+    ALLOWED_HOSTS.add(os.environ["JARVIS_REMOTE_HOST"])
 
 # Destructif → toujours refusé. (rm/find -delete/dd… interdits même "simples".)
 FORBIDDEN = [

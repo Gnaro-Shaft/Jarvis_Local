@@ -19,7 +19,7 @@ tard, sur le modèle de `safe_fs`).
 ## Config (env)
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `JARVIS_REMOTE_HOST` | `homeserv01` | hôte SSH à surveiller |
+| `JARVIS_REMOTE_HOST` | `""` (via `.env`) | hôte SSH à surveiller (ex. homeserv01) |
 | `INFRA_MODEL` | `qwen3:32b` | modèle de diagnostic |
 
 ## Commandes correctives (validation requise)

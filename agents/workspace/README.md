@@ -24,8 +24,8 @@ Persisté dans `.jarvis/state.json`. Le coordinateur (`jarvis.py`) l'utilise com
 ## Config (env)
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `JARVIS_PROJECT_ROOTS` | `/Users/dgnaro` | racines locales (séparées par `:`) |
-| `JARVIS_REMOTE_HOST` | `homeserv01` | hôte SSH (`""` = désactive le serveur) |
+| `JARVIS_PROJECT_ROOTS` | `~` (home) | racines locales (séparées par `:`) |
+| `JARVIS_REMOTE_HOST` | `""` (via `.env`) | hôte SSH, ex. homeserv01 (`""` = pas de serveur) |
 | `JARVIS_REMOTE_ROOTS` | `$HOME:$HOME/projects:/data` | racines distantes |
 
 ## Limites (prototype)

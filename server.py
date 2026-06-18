@@ -12,12 +12,12 @@ sans validation, cf. règles de sécurité du projet).
 
 Sécurité :
 - Bind par défaut sur `127.0.0.1` (local). Pour l'accès tailnet, lance avec
-  `JARVIS_BIND=<ip-tailscale-du-mac>` (ex. 100.76.189.30).
+  `JARVIS_BIND=<ip-tailscale-du-mac>` (ex. <ip-tailscale-mac>).
 - Jeton optionnel `JARVIS_TOKEN` : si défini, requis en `?token=` ou header `X-Token`.
 
 Usage:
-    JARVIS_BIND=100.76.189.30 JARVIS_TOKEN=secret python3 server.py
-    # puis depuis l'iPhone (Tailscale ON) : http://100.76.189.30:8787/?token=secret
+    JARVIS_BIND=<ip-tailscale-mac> JARVIS_TOKEN=secret python3 server.py
+    # puis depuis l'iPhone (Tailscale ON) : http://<ip-tailscale-mac>:8787/?token=secret
 """
 from __future__ import annotations
 

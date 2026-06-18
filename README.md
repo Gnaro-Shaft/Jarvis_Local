@@ -91,8 +91,8 @@ python3 jarvis.py --history 20                       # dernières interactions
 python3 jarvis.py --recall "qu'as-tu fait sur le serveur cette semaine ?"
 
 # Accès distant (Tailscale) — serveur HTTP, LECTURE SEULE :
-JARVIS_BIND=100.76.189.30 JARVIS_TOKEN=<secret> python3 server.py
-# puis depuis l'iPhone (Tailscale ON) : http://100.76.189.30:8787/?token=<secret>
+JARVIS_BIND=<ip-tailscale-mac> JARVIS_TOKEN=<secret> python3 server.py
+# puis depuis l'iPhone (Tailscale ON) : http://<ip-tailscale-mac>:8787/?token=<secret>
 
 # Écriture (validation requise — diff puis [y/N]) :
 python3 jarvis.py --write notes/idee.md "ajoute une section Résumé"   # → Obsidian
@@ -109,7 +109,7 @@ utiliser `--yes` sur le vrai vault.
 | `OLLAMA_MODEL` | `qwen3:32b` | modèle agent Obsidian |
 | `DEV_MODEL` | `qwen3-coder:30b` | modèle agent Dev |
 | `ROUTER_MODEL` | `qwen3:4b` | classifieur de routage |
-| `MNEMO_MCP_URL` | `http://100.100.77.23:8001/mcp` | RAG Mnemo |
+| `MNEMO_MCP_URL` | `http://<ip-tailscale-serveur>:8001/mcp` | RAG Mnemo |
 
 ## État
 Prototype fonctionnel : coordinateur + 2 agents, validés end-to-end, 100% local.

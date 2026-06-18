@@ -24,10 +24,12 @@ import shutil
 import time
 from dataclasses import dataclass
 
+_HOME = os.path.expanduser("~")
+# Zones par défaut génériques ; les zones réelles (vault, etc.) se définissent
+# via JARVIS_WORKSPACES (ex. dans .env), séparées par os.pathsep.
 DEFAULT_WORKSPACES = {
-    "obsidian": "/Users/dgnaro/dGnaro",
-    "jarvis": "/Users/dgnaro/J_A_R_V_I_S",
-    "downloads": "/Users/dgnaro/Downloads",
+    "jarvis": os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "downloads": os.path.join(_HOME, "Downloads"),
 }
 ARCHIVE_DIRNAME = "Archive_IA"
 VALID_KINDS = {"create", "modify", "move", "archive"}

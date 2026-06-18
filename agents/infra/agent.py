@@ -15,7 +15,7 @@ Usage:
     python3 agents/infra/agent.py "le disque se remplit, pourquoi ?"   # diagnostic LLM
 
 Config (env):
-    JARVIS_REMOTE_HOST  (homeserv01)          hôte SSH à surveiller
+    JARVIS_REMOTE_HOST  (vide ; ex. homeserv01) hôte SSH à surveiller
     INFRA_MODEL         (qwen3:32b)           modèle de diagnostic
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ sys.path.insert(0, AGENTS_DIR)
 from common import ollama_generate, clean_llm_output, log_event  # noqa: E402
 import safe_cmd  # noqa: E402
 
-REMOTE_HOST = os.environ.get("JARVIS_REMOTE_HOST", "homeserv01")
+REMOTE_HOST = os.environ.get("JARVIS_REMOTE_HOST", "")  # ex. via .env : homeserv01
 INFRA_MODEL = os.environ.get("INFRA_MODEL", "qwen3:32b")
 
 # Commandes STRICTEMENT en lecture, exécutées en un seul aller SSH.
@@ -72,6 +72,8 @@ def invalidate_cache(host: str | None = None) -> None:
 
 
 def snapshot(host: str = REMOTE_HOST, force: bool = False) -> dict[str, str]:
+    if not host:
+        return {"_error": "Aucun serveur configuré — définis JARVIS_REMOTE_HOST (ex. dans .env)."}
     now = time.monotonic()
     if not force and CACHE_TTL > 0:
         with _CACHE_LOCK:

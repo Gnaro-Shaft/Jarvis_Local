@@ -7,10 +7,31 @@ import os
 import urllib.error
 import urllib.request
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _load_local_env() -> None:
+    """Charge `<repo>/.env` (KEY=VALUE, non versionné) dans l'environnement.
+    Permet de garder les valeurs perso (hôtes, IPs, chemins) hors du dépôt public ;
+    les variables déjà définies dans l'environnement ont la priorité (setdefault)."""
+    path = os.path.join(_REPO_ROOT, ".env")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                os.environ.setdefault(key.strip(), val.strip())
+    except OSError:
+        pass
+
+
+_load_local_env()
+
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
 # --- État partagé de Jarvis (ex. projet actif) : J_A_R_V_I_S/.jarvis/state.json --
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def state_path() -> str:

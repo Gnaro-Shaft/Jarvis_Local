@@ -14,8 +14,8 @@ Usage:
     python3 agents/workspace/agent.py --active        # affiche le projet actif
 
 Config (env):
-    JARVIS_PROJECT_ROOTS   (/Users/dgnaro)          racines locales (os.pathsep)
-    JARVIS_REMOTE_HOST     (homeserv01)             hôte SSH du serveur ("" = off)
+    JARVIS_PROJECT_ROOTS   (~ = home)          racines locales (os.pathsep)
+    JARVIS_REMOTE_HOST     (vide ; ex. homeserv01)  hôte SSH du serveur ("" = off)
     JARVIS_REMOTE_ROOTS    ($HOME:$HOME/projects:/data)   racines distantes
 """
 from __future__ import annotations
@@ -29,8 +29,8 @@ AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
 from common import get_active_project, set_active_project  # noqa: E402
 
-LOCAL_ROOTS = os.environ.get("JARVIS_PROJECT_ROOTS", "/Users/dgnaro").split(os.pathsep)
-REMOTE_HOST = os.environ.get("JARVIS_REMOTE_HOST", "homeserv01")
+LOCAL_ROOTS = os.environ.get("JARVIS_PROJECT_ROOTS", os.path.expanduser("~")).split(os.pathsep)
+REMOTE_HOST = os.environ.get("JARVIS_REMOTE_HOST", "")  # ex. via .env : homeserv01
 REMOTE_ROOTS = os.environ.get("JARVIS_REMOTE_ROOTS", "$HOME:$HOME/projects:/data").split(":")
 
 # marqueur de fichier -> type de projet

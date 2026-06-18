@@ -2,7 +2,7 @@
 
 ## La façon simple : le chat
 ```bash
-cd /Users/dgnaro/J_A_R_V_I_S
+cd ~/Jarvis_Local
 ./jarvis
 ```
 Tu obtiens une invite `jarvis›`. Tape ta demande en langage naturel — Jarvis
@@ -33,17 +33,17 @@ choisit l'agent tout seul. Raccourcis disponibles :
 ## Confort : taper juste `jarvis`
 Ajoute un alias dans `~/.zshrc` (ou `~/.bashrc`) :
 ```bash
-alias jarvis='/Users/dgnaro/J_A_R_V_I_S/jarvis'
+alias jarvis='~/Jarvis_Local/jarvis'
 ```
 Puis `source ~/.zshrc`. Tu pourras lancer `jarvis` depuis n'importe quel dossier.
 
 ## Depuis l'iPhone / à distance (lecture seule, Tailscale)
 Sur le Mac :
 ```bash
-JARVIS_BIND=100.76.189.30 JARVIS_TOKEN=monsecret python3 server.py
+JARVIS_BIND=<ip-tailscale-mac> JARVIS_TOKEN=monsecret python3 server.py
 ```
 Sur l'iPhone (Tailscale activé), dans Safari :
-`http://100.76.189.30:8787/?token=monsecret`
+`http://<ip-tailscale-mac>:8787/?token=monsecret`
 
 ## Prérequis
 - **Ollama** lancé en local (modèles `qwen3:32b`, `qwen3-coder:30b`, `qwen3:4b`).
