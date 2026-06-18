@@ -26,6 +26,7 @@ import importlib.util
 import os
 import re
 import sys
+import unicodedata
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 AGENTS_DIR = os.path.join(ROOT, "agents")
@@ -56,15 +57,22 @@ INFRA_KW = [
     "infrastructure", "systemd", "tailscale", "uptime", "ram serveur", "disque serveur",
     "self-hosted", "self-hébergé", "ssh", "healthy", "unhealthy", "conteneurs",
 ]
+RESEARCH_KW = [
+    "web", "internet", "en ligne", "sur le net", "actualité", "actualités", "news",
+    "nouvelles", "dernières", "récent", "récente", "météo", "google", "cherche sur",
+    "recherche web", "en 2026", "aujourd'hui", "prix de", "cours de",
+]
 
 
 def _norm(s: str) -> str:
-    return s.lower()
+    """minuscule + sans accents (pour matcher même si l'utilisateur tape sans accents)."""
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower())
+                    if unicodedata.category(c) != "Mn")
 
 
 def _score(text: str, keywords: list[str]) -> int:
     t = _norm(text)
-    return sum(1 for kw in keywords if kw in t)
+    return sum(1 for kw in keywords if _norm(kw) in t)
 
 
 def _has_path(text: str) -> bool:
@@ -95,10 +103,13 @@ def route(question: str, project_given: bool) -> tuple[str, str]:
     dev = _score(question, DEV_KW)
     know = _score(question, KNOW_KW)
     infra = _score(question, INFRA_KW)
-    top = max(dev, know, infra)
+    research = _score(question, RESEARCH_KW)
+    top = max(dev, know, infra, research)
     if top == 0:
-        return classify_llm(question), f"ambigu (0/0/0) -> classifieur {ROUTER_MODEL}"
-    if infra == top and infra > dev and infra > know:
+        return classify_llm(question), f"ambigu -> classifieur {ROUTER_MODEL}"
+    if research == top:
+        return "research", f"signaux web ({research})"
+    if infra == top:
         return "infra", f"signaux infra ({infra})"
     if dev > know:
         return "dev", f"signaux code ({dev}) > connaissances ({know})"
@@ -135,7 +146,7 @@ def _load(path: str, name: str):
 
 REPL_HELP = """\
 Commandes :
-  <texte libre>            poser une question (routage auto : connaissances / code / infra)
+  <texte libre>            poser une question (routage auto : connaissances / code / infra / web)
   /projet                  lister les projets (local)
   /use <nom>               définir le projet actif (contexte de l'agent code)
   /ecrire <cible> | <consigne>   proposer une écriture (note ou fichier) → validation
@@ -264,7 +275,7 @@ def repl() -> int:
 def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser(description="Jarvis — coordinateur central (prototype)")
     p.add_argument("question", nargs="*")
-    p.add_argument("--agent", choices=["auto", "obsidian", "dev", "infra"], default="auto")
+    p.add_argument("--agent", choices=["auto", "obsidian", "dev", "infra", "research"], default="auto")
     p.add_argument("--history", type=int, nargs="?", const=20, default=None,
                    help="afficher les N dernières interactions journalisées (défaut 20)")
     p.add_argument("--recall", default=None,
@@ -368,6 +379,13 @@ def answer(question: str, agent_override: str | None = None,
         return {"agent": agent, "reason": reason, "text": out.get("answer") or out.get("error", ""),
                 "sources": [], "rc": 0 if ok else 1, "note": None}
 
+    if agent == "research":
+        mod = _load(os.path.join(AGENTS_DIR, "research", "agent.py"), "research_agent")
+        out = mod.ask(question)
+        log_event("research", "read", question, outcome="ok" if out.get("sources") else "no_results")
+        return {"agent": agent, "reason": reason, "text": out["answer"],
+                "sources": out.get("sources", []), "rc": 0, "note": None}
+
     if agent == "dev":
         proj = project or active_local or ROOT
         note = f"📁 {proj}"
@@ -402,6 +420,10 @@ def prepare_answer(question: str, agent_override: str | None = None,
 
     if agent == "infra":
         mod = _load(os.path.join(AGENTS_DIR, "infra", "agent.py"), "infra_agent")
+        p = mod.prepare(question)
+        note, logtarget = None, None
+    elif agent == "research":
+        mod = _load(os.path.join(AGENTS_DIR, "research", "agent.py"), "research_agent")
         p = mod.prepare(question)
         note, logtarget = None, None
     elif agent == "dev":

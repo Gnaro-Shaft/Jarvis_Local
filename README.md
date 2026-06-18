@@ -53,6 +53,7 @@ Configuration par variables d'environnement (modèles, hôtes, etc.) : voir [USA
 - **Agent Dev** (`agents/dev/`) : analyse de code d'un projet, synthèse `qwen3-coder:30b`.
 - **Agent Workspace** (`agents/workspace/`) : découvre les projets (local + serveur SSH), déduplique, gère le **projet actif** (contexte par défaut de l'agent Dev).
 - **Agent Infrastructure** (`agents/infra/`) : surveille le serveur via SSH (santé + Docker) et diagnostique, **lecture seule**.
+- **Agent Recherche** (`agents/research/`) : recherche web via **SearXNG** self-hosted → synthèse locale sourcée, **lecture seule** (local-first : pas d'appel direct aux moteurs publics).
 - **Commun** (`agents/common.py`) : appel Ollama, nettoyage des sorties, état partagé (projet actif), **journal d'orchestration**.
 - **Mémoire d'orchestration** : chaque interaction (question → agent → action → issue) est journalisée dans `.jarvis/journal.jsonl` ; consultable (`--history`) et interrogeable en langage naturel (`--recall`).
 
@@ -83,6 +84,10 @@ python3 agents/workspace/agent.py --use v8   # projet actif → contexte Dev par
 # Infra (via coordinateur ou direct) :
 python3 jarvis.py "comment vont les conteneurs docker du serveur ?"
 python3 agents/infra/agent.py                # snapshot santé + Docker
+
+# Recherche web (agent Research, via SearXNG) :
+python3 jarvis.py "quelles sont les actualités récentes sur X ?"
+python3 agents/research/agent.py "..."
 python3 agents/infra/agent.py --run "docker restart mnemo-couchdb"   # commande validée
 python3 agents/infra/agent.py --fix "couchdb est unhealthy"          # l'agent propose → tu valides
 
