@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -55,6 +56,12 @@ def ssh_run(host: str, cmd: str, timeout: int = 15) -> tuple[bool, str]:
         )
     except (subprocess.SubprocessError, OSError) as e:
         return False, f"erreur SSH : {e}"
+    blob = (r.stderr or "") + (r.stdout or "")
+    if "login.tailscale.com" in blob or "Tailscale SSH requires" in blob:
+        m = re.search(r"https://login\.tailscale\.com/\S+", blob)
+        url = m.group(0) if m else f"(lance `ssh {host}` dans un terminal pour obtenir le lien)"
+        return False, (f"Tailscale SSH demande une ré-authentification → visite {url} "
+                       f"puis réessaie (ou lance `ssh {host}` en interactif).")
     if r.returncode != 0 and not r.stdout:
         return False, f"SSH rc={r.returncode} : {r.stderr.strip()[:200]}"
     return True, r.stdout
