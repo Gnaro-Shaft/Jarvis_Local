@@ -19,8 +19,8 @@ Vision complète : note Obsidian `02 - Projets/Jarvis Local/` (vault dGnaro).
 
 **Démarrage**
 ```bash
-git clone https://github.com/Gnaro-Shaft/Assistant_Local.git
-cd Assistant_Local
+git clone https://github.com/Gnaro-Shaft/Jarvis_Local.git
+cd Jarvis_Local
 ./jarvis                 # chat interactif
 # ou : python3 server.py   → http://localhost:8787 (interface web)
 ```
