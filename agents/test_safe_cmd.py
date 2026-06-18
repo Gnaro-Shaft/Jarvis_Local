@@ -31,6 +31,16 @@ def main() -> int:
         "docker system prune -f": "forbidden",
         "dd if=/dev/zero of=/dev/sda": "forbidden",
         "sudo reboot": "forbidden",
+        # --- régressions de la revue qualité (trous corrigés) ---
+        "rm fichier.txt": "forbidden",                 # rm "simple" (sans -/ /)
+        "sudo rm data": "forbidden",
+        "find . -name '*.log' -delete": "forbidden",   # find destructif
+        "find / -exec rm {} ;": "forbidden",
+        "dd of=/dev/sda bs=1M": "forbidden",           # dd sans if=
+        "echo hacked > /etc/passwd": "mutating",       # redirection (pas "read")
+        "docker ps | grep x": "mutating",              # pipe (pas "read")
+        "cat a.txt; rm b.txt": "forbidden",            # chaînage cachant un rm
+        "docker logs my-rm-container": "read",         # anti-faux-positif (rm dans un nom)
     }
     for cmd, expected in cases.items():
         got = safe_cmd.classify(cmd)

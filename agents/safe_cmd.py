@@ -25,19 +25,23 @@ ALLOWED_HOSTS = set(
     os.environ.get("JARVIS_ALLOWED_HOSTS", "homeserv01:localhost:local").split(":")
 )
 
-# Destructif → toujours refusé.
+# Destructif → toujours refusé. (rm/find -delete/dd… interdits même "simples".)
 FORBIDDEN = [
-    r"\brm\s+-|\brm\s+/|\brmdir\b",
+    r"(?:^|[\s;&|])(rm|rmdir|unlink|shred)\s",
+    r"(?:^|\s)-delete(?:\s|$)|-exec\s+(?:rm|sh|bash|python)",
     r"docker\s+(rm|kill)\b",
     r"docker\s+(volume|image|system|container|network)\s+(rm|prune)",
     r"docker\s+compose\s+down",
-    r"\bmkfs\b|\bdd\s+if=|>\s*/dev/[sh]d",
+    r"\bmkfs\b|(?:^|\s)dd\s|>\s*/dev/[sh]d",
     r"\bshutdown\b|\breboot\b|\bhalt\b|\bpoweroff\b",
     r"\bdrop\s+database\b|\btruncate\s+table\b",
     r":\(\)\s*\{.*\};|\bgit\s+clean\b",
     r"\b(chown|chmod)\s+-R\s+/\s|\bmv\s+\S+\s+/dev/null",
 ]
-# Lecture / inspection → faible risque (validation non requise).
+# Opérateurs shell qui peuvent chaîner/rediriger → interdit le classement "read"
+# (une lecture qui contient `>`, `|`, `;`, etc. doit passer par la validation).
+_SHELL_OPS = re.compile(r">>|[;|&`>]|\$\(")
+# Lecture / inspection → faible risque (validation non requise), SI aucun opérateur shell.
 READ = [
     r"^\s*docker\s+(ps|images|inspect|logs|stats|top|version|info|compose\s+(ps|config|logs))\b",
     r"^\s*(ls|cat|head|tail|less|df|du|free|uptime|ps|top|stat|hostname|whoami|pwd|env|printenv|id|uname)\b",
@@ -62,9 +66,10 @@ def classify(command: str) -> str:
     for pat in FORBIDDEN:
         if re.search(pat, c):
             return "forbidden"
-    for pat in READ:
-        if re.match(pat, c):
-            return "read"
+    if not _SHELL_OPS.search(c):          # pas de redirection/chaînage → éligible "read"
+        for pat in READ:
+            if re.match(pat, c):
+                return "read"
     return "mutating"
 
 

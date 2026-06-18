@@ -198,7 +198,11 @@ class Handler(BaseHTTPRequestHandler):
     def _stream_ask(self, q: str):
         """Stream : routage + récupération, puis génération token-par-token.
         Format : <meta JSON>\\x1e<texte qui coule…>"""
-        prep = jarvis.prepare_answer(q)
+        try:
+            prep = jarvis.prepare_answer(q)
+        except Exception as e:
+            prep = {"agent": "?", "reason": "erreur", "sources": [], "note": None,
+                    "prompt": None, "text": f"Erreur : {e}", "logtarget": None}
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")

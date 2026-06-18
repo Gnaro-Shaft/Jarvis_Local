@@ -206,6 +206,38 @@ def _repl_infra(status: bool, problem: str = "") -> None:
     log_event("infra", "fix", f"{problem} :: {cmd}", target=mod.REMOTE_HOST, outcome=outcome)
 
 
+def _repl_handle(line: str) -> None:
+    low = line.lower()
+    if low in ("/aide", "/help", "?"):
+        print(REPL_HELP)
+    elif low.startswith("/projet") or low.startswith("/use"):
+        _repl_projects(line)
+    elif low.startswith("/ecrire") or low.startswith("/write"):
+        _repl_write(line)
+    elif low.startswith("/infra"):
+        _repl_infra(status=True)
+    elif low.startswith("/fix"):
+        _repl_infra(status=False, problem=line.split(" ", 1)[1].strip() if " " in line else "")
+    elif low.startswith("/historique") or low.startswith("/history"):
+        parts = line.split()
+        _print_history(int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 20)
+    elif low.startswith("/rappel") or low.startswith("/recall"):
+        q = line.split(" ", 1)[1].strip() if " " in line else ""
+        print(recall(q) if q else "usage : /rappel <question>")
+    elif line.startswith("/"):
+        print("commande inconnue — /aide")
+    else:
+        res = answer(line)
+        print(f"\n🧭 {res['agent']} — {res['reason']}")
+        if res.get("note"):
+            print(res["note"])
+        print("\n" + res["text"])
+        for i, src in enumerate(res.get("sources", []), 1):
+            if i == 1:
+                print("\n— Sources —")
+            print(f"  [{i}] {src}")
+
+
 def repl() -> int:
     active = get_active_project() or {}
     print("🤖 Jarvis — chat local. Tape ta demande, ou /aide. (/quitter pour sortir)")
@@ -219,37 +251,12 @@ def repl() -> int:
             break
         if not line:
             continue
-        low = line.lower()
-        if low in ("/quitter", "/quit", "/exit", "quit", "exit"):
+        if line.lower() in ("/quitter", "/quit", "/exit", "quit", "exit"):
             break
-        if low in ("/aide", "/help", "?"):
-            print(REPL_HELP)
-        elif low.startswith("/projet") or low.startswith("/use"):
-            _repl_projects(line)
-        elif low.startswith("/ecrire") or low.startswith("/write"):
-            _repl_write(line)
-        elif low.startswith("/infra"):
-            _repl_infra(status=True)
-        elif low.startswith("/fix"):
-            _repl_infra(status=False, problem=line.split(" ", 1)[1].strip() if " " in line else "")
-        elif low.startswith("/historique") or low.startswith("/history"):
-            parts = line.split()
-            _print_history(int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 20)
-        elif low.startswith("/rappel") or low.startswith("/recall"):
-            q = line.split(" ", 1)[1].strip() if " " in line else ""
-            print(recall(q) if q else "usage : /rappel <question>")
-        elif line.startswith("/"):
-            print("commande inconnue — /aide")
-        else:
-            res = answer(line)
-            print(f"\n🧭 {res['agent']} — {res['reason']}")
-            if res.get("note"):
-                print(res["note"])
-            print("\n" + res["text"])
-            for i, src in enumerate(res.get("sources", []), 1):
-                if i == 1:
-                    print("\n— Sources —")
-                print(f"  [{i}] {src}")
+        try:
+            _repl_handle(line)
+        except Exception as e:
+            print(f"⛔ erreur : {e}")
     print("À bientôt.")
     return 0
 

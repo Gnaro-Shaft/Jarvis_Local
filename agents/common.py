@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
 import urllib.request
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
@@ -113,8 +114,11 @@ def ollama_generate(
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read())["response"].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read())["response"].strip()
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Ollama injoignable sur {url} ({e.reason}). Lance `ollama serve`.") from e
 
 
 def ollama_stream(prompt: str, model: str, url: str = OLLAMA_URL,
@@ -130,20 +134,23 @@ def ollama_stream(prompt: str, model: str, url: str = OLLAMA_URL,
         f"{url}/api/generate", data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        for line in r:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            chunk = obj.get("response", "")
-            if chunk:
-                yield chunk
-            if obj.get("done"):
-                break
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            for line in r:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                chunk = obj.get("response", "")
+                if chunk:
+                    yield chunk
+                if obj.get("done"):
+                    break
+    except urllib.error.URLError as e:
+        yield f"\n[Ollama injoignable sur {url} ({e.reason}). Lance `ollama serve`.]"
 
 
 def clean_llm_output(text: str) -> str:
