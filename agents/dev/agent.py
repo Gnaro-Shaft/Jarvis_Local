@@ -104,7 +104,7 @@ def collect_project(root: str, budget: int,
         rel, content = item
         is_readme = os.path.basename(rel).lower().startswith("readme")
         if qtokens:
-            return (-(_score(rel, content, qtokens) + (3 if is_readme else 0)), rel)
+            return (-(_score(rel, content, qtokens) + (1 if is_readme else 0)), rel)
         return (0 if is_readme else 1, rel)
 
     read.sort(key=rank_key)

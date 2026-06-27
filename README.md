@@ -116,6 +116,15 @@ utiliser `--yes` sur le vrai vault.
 | `ROUTER_MODEL` | `qwen3:4b` | classifieur de routage |
 | `MNEMO_MCP_URL` | `http://<ip-tailscale-serveur>:8001/mcp` | RAG Mnemo |
 
+## Tests
+```bash
+python3 run_tests.py        # toutes les suites (agents/test_*.py)
+python3 run_tests.py -v     # + détail des échecs
+```
+Couvre : sécurité fichiers (`safe_fs`) & commandes (`safe_cmd`), routage du
+coordinateur, sélection de fichiers de l'agent Dev, journal/état partagés,
+découverte de projets (Workspace). Déterministe, sans Ollama/SSH/réseau.
+
 ## État
 Prototype fonctionnel : coordinateur + 2 agents, validés end-to-end, 100% local.
 Voir la note de suivi pour la roadmap (garde-fous écriture/validation, agents
