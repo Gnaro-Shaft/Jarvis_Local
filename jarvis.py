@@ -59,8 +59,8 @@ INFRA_KW = [
 ]
 RESEARCH_KW = [
     "web", "internet", "en ligne", "sur le net", "actualité", "actualités", "news",
-    "nouvelles", "dernières", "récent", "récente", "météo", "google", "cherche sur",
-    "recherche web", "en 2026", "aujourd'hui", "prix de", "cours de",
+    "météo", "google", "cherche sur", "recherche web", "prix de", "cours de",
+    "quoi de neuf", "en 2026",
 ]
 
 
@@ -80,18 +80,21 @@ def _has_path(text: str) -> bool:
 
 
 def classify_llm(question: str) -> str:
-    """Tranche les cas ambigus via un petit LLM local. Retourne 'obsidian' ou 'dev'."""
+    """Tranche les cas ambigus via un LLM local. Retourne l'un des 4 agents."""
     prompt = (
-        "Tu es un routeur. Classe la demande utilisateur dans EXACTEMENT une catégorie :\n"
-        "- 'dev' : analyse/écriture/explication de CODE, d'un projet logiciel, de fichiers source.\n"
-        "- 'obsidian' : recherche dans les NOTES personnelles / vault Obsidian / connaissances.\n"
-        "Réponds par un seul mot : dev OU obsidian.\n\n"
-        f"Demande : {question}\nCatégorie :"
+        "Tu es le routeur de Jarvis. Choisis L'UNIQUE agent le plus adapté à la demande :\n"
+        "- obsidian : chercher dans les NOTES personnelles / vault Obsidian / connaissances de l'utilisateur.\n"
+        "- dev : analyser ou écrire du CODE, un projet logiciel, des fichiers source.\n"
+        "- infra : état d'un SERVEUR, conteneurs Docker, services, SSH, auto-hébergement.\n"
+        "- research : information À JOUR sur le WEB (actualités, faits récents, recherche internet).\n"
+        "Réponds par UN SEUL mot : obsidian, dev, infra ou research.\n\n"
+        f"Demande : {question}\nAgent :"
     )
-    out = ollama_generate(prompt, model=ROUTER_MODEL, temperature=0.0).lower()
-    return "dev" if "dev" in out and "obsidian" not in out else (
-        "obsidian" if "obsidian" in out else "obsidian"
-    )
+    out = clean_llm_output(ollama_generate(prompt, model=ROUTER_MODEL, temperature=0.0)).lower()
+    for agent in ("research", "infra", "obsidian", "dev"):
+        if agent in out:
+            return agent
+    return "obsidian"  # défaut prudent (lecture seule)
 
 
 def route(question: str, project_given: bool) -> tuple[str, str]:
