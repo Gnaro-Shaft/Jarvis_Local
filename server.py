@@ -61,6 +61,7 @@ PAGE = """<!doctype html><html lang=fr><meta charset=utf-8>
  .el{margin-left:auto;font-variant-numeric:tabular-nums;color:#8b949e;font-size:.9rem}
  @keyframes flip{0%,100%{transform:rotate(0)}50%{transform:rotate(180deg)}}
  #out{display:flex;flex-direction:column}
+ .turn{display:flex;flex-direction:column;padding:.4rem 0 .8rem;border-bottom:0.5px solid #21262d}
  .u{align-self:flex-end;max-width:85%;background:#1f6feb22;border:0.5px solid #1f6feb55;border-radius:.6rem;padding:.5rem .8rem;margin-top:.9rem;white-space:pre-wrap}
  .clearbtn{margin-top:.6rem;font-size:.8rem;color:#8b949e}
  pre{position:relative;background:#0b0f17;border:0.5px solid #30363d;border-radius:.5rem;padding:.7rem .8rem;overflow:auto;margin:.5rem 0}
@@ -100,12 +101,12 @@ function renderMD(t){
 let timer=null;
 let thread=[]; try{thread=JSON.parse(localStorage.getItem('jarvis_thread')||'[]');}catch(_){thread=[];}
 function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
-function bubble(){const d=document.createElement('div');d.className='a';out.appendChild(d);return d;}
-function addUser(q){const d=document.createElement('div');d.className='u';d.textContent=q;out.appendChild(d);d.scrollIntoView({block:'end'});}
-function loading(label){
-  const d=bubble();
+function newTurn(){const d=document.createElement('div');d.className='turn';out.insertBefore(d,out.firstChild);window.scrollTo({top:0});return d;}
+function addUser(turn,q){const d=document.createElement('div');d.className='u';d.textContent=q;turn.appendChild(d);}
+function bubbleIn(turn){const d=document.createElement('div');d.className='a';turn.appendChild(d);return d;}
+function loadingIn(turn,label){
+  const d=bubbleIn(turn);
   d.innerHTML='<div class=load><span class=hg>⏳</span><span>'+label+'</span><span class=el>0.0s</span></div>';
-  d.scrollIntoView({block:'end'});
   const el=d.querySelector('.el'),t0=Date.now();
   stopTimer();timer=setInterval(()=>{el.textContent=((Date.now()-t0)/1000).toFixed(1)+'s';},100);
   return d;
@@ -127,10 +128,10 @@ function renderAns(bub,meta,body){
 }
 function saveThread(){try{localStorage.setItem('jarvis_thread',JSON.stringify(thread.slice(-30)));}catch(_){}}
 function clearThread(){stopTimer();out.innerHTML='';thread=[];try{localStorage.removeItem('jarvis_thread');}catch(_){}}
-function restoreThread(){for(const e of thread){addUser(e.q);const b=bubble();renderAns(b,e.meta,e.body);decorate(b);}}
+function restoreThread(){for(const e of thread){const t=newTurn();addUser(t,e.q);const b=bubbleIn(t);renderAns(b,e.meta,e.body);decorate(b);}}
 async function ask(){
   const inp=document.getElementById('q'); const q=inp.value.trim(); if(!q)return; inp.value='';
-  addUser(q); const bub=loading('Jarvis réfléchit…');
+  const turn=newTurn(); addUser(turn,q); const bub=loadingIn(turn,'Jarvis réfléchit…');
   try{
     const hist=thread.slice(-4).map(t=>({q:t.q,a:(t.body||'').slice(0,400)}));
     const resp=await fetch(url('/ask','&q='+encodeURIComponent(q)+'&h='+encodeURIComponent(JSON.stringify(hist))));
@@ -138,8 +139,7 @@ async function ask(){
     const reader=resp.body.getReader(), dec=new TextDecoder(); let buf='', meta=null;
     const paint=(final)=>{const body=buf.slice(buf.indexOf('\\x1e')+1);
       renderAns(bub,meta,body);
-      if(final){decorate(bub);thread.push({q,meta,body});saveThread();}
-      bub.scrollIntoView({block:'end'});};
+      if(final){decorate(bub);thread.push({q,meta,body});saveThread();}};
     while(true){const {value,done:fin}=await reader.read(); if(fin)break;
       buf+=dec.decode(value,{stream:true});
       if(!meta){const i=buf.indexOf('\\x1e'); if(i<0)continue; meta=JSON.parse(buf.slice(0,i)); stopTimer();}
@@ -149,11 +149,11 @@ async function ask(){
 }
 async function recall(){
   const ri=document.getElementById('rq'); const q=ri.value.trim(); if(!q)return; ri.value='';
-  addUser('🧠 '+q); const bub=loading('Lecture du journal…');
+  const turn=newTurn(); addUser(turn,'🧠 '+q); const bub=loadingIn(turn,'Lecture du journal…');
   try{const d=await(await fetch(url('/recall','&q='+encodeURIComponent(q)))).json(); stopTimer();
     bub.innerHTML=esc(d.text);}catch(e){stopTimer();bub.innerHTML='erreur';}
 }
-async function history(){const bub=loading('Chargement…');
+async function history(){const turn=newTurn(); const bub=loadingIn(turn,'Chargement…');
   try{const d=await(await fetch(url('/history','&n=25'))).json(); stopTimer();
     let r='<table>';for(const e of d.events.reverse()){
       r+='<tr><td>'+esc(e.ts)+'</td><td><span class=badge>'+esc(e.agent)+'</span></td><td>'+esc(e.mode)+'</td>'
@@ -161,7 +161,7 @@ async function history(){const bub=loading('Chargement…');
         +'<td>'+esc(e.request)+'</td></tr>';}
     bub.innerHTML=r+'</table>';}catch(e){stopTimer();bub.innerHTML='erreur';}
 }
-async function infra(){const bub=loading('Lecture du serveur…');
+async function infra(){const turn=newTurn(); const bub=loadingIn(turn,'Lecture du serveur…');
   try{const d=await(await fetch(url('/status'))).json(); stopTimer(); const s=d.snapshot||{};
     let dk=(s.docker||'').split('\\n').filter(Boolean).map(l=>{const p=l.split('\\t');
       const up=(p[1]||'').toLowerCase();const cl=up.includes('healthy')&&!up.includes('unhealthy')?'ok':(up.includes('unhealthy')?'ko':'');
