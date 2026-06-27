@@ -18,7 +18,12 @@ choisit l'agent tout seul. Raccourcis disponibles :
 | `/fix <problème>` | l'agent infra propose une commande corrective → **validation** |
 | `/historique [N]` | dernières interactions |
 | `/rappel <question>` | résumé du journal en langage naturel |
+| `/oubli` | effacer le contexte de conversation |
 | `/aide` · `/quitter` | aide · sortir |
+
+> **Questions de suivi** : Jarvis se souvient des échanges de la session →
+> tu peux dire « et la suite ? », « détaille le point 2 », « et pour aria ? ».
+> (`/oubli` repart à zéro. Dans l'app web, le fil sert de contexte.)
 
 > Les écritures et commandes affichent un **aperçu** puis demandent `y/N`.
 > Rien n'est appliqué sans ton accord. Suppression impossible (→ `Archive_IA`).
