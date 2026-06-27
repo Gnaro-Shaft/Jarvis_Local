@@ -27,7 +27,7 @@ import urllib.request
 
 AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
-from common import ollama_generate, clean_llm_output  # noqa: E402
+from common import ollama_generate, clean_llm_output, format_history  # noqa: E402
 
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8888").rstrip("/")
 RESEARCH_MODEL = os.environ.get("RESEARCH_MODEL", "qwen3:32b")
@@ -55,7 +55,7 @@ def search(query: str, n: int = 6, timeout: int = 15) -> dict:
     return {"results": results}
 
 
-def build_prompt(question: str, results: list[dict]) -> str:
+def build_prompt(question: str, results: list[dict], convo: str = "") -> str:
     ctx = "\n\n".join(
         f"[{i+1}] {r['title']}\n{r['url']}\n{r['content']}" for i, r in enumerate(results)
     )
@@ -64,19 +64,20 @@ def build_prompt(question: str, results: list[dict]) -> str:
         "t'appuyant UNIQUEMENT sur ces résultats de recherche web. Cite tes sources "
         "par [n] dans le texte. Sois factuel ; si les résultats ne suffisent pas ou se "
         "contredisent, dis-le.\n\n"
-        f"# Résultats web (SearXNG)\n{ctx}\n\n# Question\n{question}\n\n# Réponse sourcée :"
+        f"# Résultats web (SearXNG)\n{ctx}\n\n{convo}# Question\n{question}\n\n# Réponse sourcée :"
     )
 
 
-def prepare(question: str, n: int = 6, model: str = RESEARCH_MODEL) -> dict:
+def prepare(question: str, n: int = 6, model: str = RESEARCH_MODEL,
+            history: list | None = None) -> dict:
     """Recherche + construit le prompt (sans générer). Pour le streaming."""
     res = search(question, n=n)
     if "error" in res:
         return {"prompt": None, "model": model, "sources": [], "text": res["error"]}
     if not res["results"]:
         return {"prompt": None, "model": model, "sources": [], "text": "Aucun résultat web pertinent."}
-    return {"prompt": build_prompt(question, res["results"]), "model": model,
-            "sources": [r["url"] for r in res["results"] if r["url"]]}
+    return {"prompt": build_prompt(question, res["results"], format_history(history)),
+            "model": model, "sources": [r["url"] for r in res["results"] if r["url"]]}
 
 
 def ask(question: str, n: int = 6, model: str = RESEARCH_MODEL) -> dict:

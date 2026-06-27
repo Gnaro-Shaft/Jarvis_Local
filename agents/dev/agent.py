@@ -28,7 +28,7 @@ import unicodedata
 
 AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
-from common import ollama_generate, clean_llm_output  # noqa: E402
+from common import ollama_generate, clean_llm_output, format_history  # noqa: E402
 import safe_fs  # noqa: E402
 
 DEV_MODEL = os.environ.get("DEV_MODEL", "qwen3-coder:30b")
@@ -126,7 +126,8 @@ def collect_project(root: str, budget: int,
     return tree, files
 
 
-def build_prompt(question: str, project: str, tree: list[str], files: list[tuple[str, str]]) -> str:
+def build_prompt(question: str, project: str, tree: list[str],
+                 files: list[tuple[str, str]], convo: str = "") -> str:
     tree_str = "\n".join(f"  {p}" for p in tree)
     files_str = "\n\n".join(f"=== {rel} ===\n{content}" for rel, content in files)
     return (
@@ -138,11 +139,12 @@ def build_prompt(question: str, project: str, tree: list[str], files: list[tuple
         f"# Projet analysé : {project}\n\n"
         f"# Arborescence (projet complet)\n{tree_str}\n\n"
         f"# Contenu des fichiers les plus pertinents pour la question\n{files_str}\n\n"
-        f"# Question\n{question}\n\n# Réponse :"
+        f"{convo}# Question\n{question}\n\n# Réponse :"
     )
 
 
-def prepare(question: str, project: str = REPO_ROOT, model: str = DEV_MODEL) -> dict:
+def prepare(question: str, project: str = REPO_ROOT, model: str = DEV_MODEL,
+            history: list | None = None) -> dict:
     """Collecte le projet et construit le prompt (sans générer). Pour le streaming."""
     project = os.path.abspath(project)
     if not os.path.isdir(project):
@@ -150,8 +152,8 @@ def prepare(question: str, project: str = REPO_ROOT, model: str = DEV_MODEL) -> 
     tree, files = collect_project(project, CTX_BUDGET, question)
     if not files:
         return {"prompt": None, "model": model, "sources": [], "text": f"aucun fichier analysable dans {project}"}
-    return {"prompt": build_prompt(question, project, tree, files), "model": model,
-            "sources": [], "project": project, "n_files": len(files)}
+    return {"prompt": build_prompt(question, project, tree, files, format_history(history)),
+            "model": model, "sources": [], "project": project, "n_files": len(files)}
 
 
 def ask(question: str, project: str, model: str = DEV_MODEL) -> dict:

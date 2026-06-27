@@ -30,7 +30,7 @@ import urllib.request
 
 AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
-from common import ollama_generate, clean_llm_output  # noqa: E402
+from common import ollama_generate, clean_llm_output, format_history  # noqa: E402
 import safe_fs  # noqa: E402
 
 MNEMO_MCP_URL = os.environ.get("MNEMO_MCP_URL", "http://localhost:8001/mcp")
@@ -117,7 +117,7 @@ class MnemoMCP:
         return self.call("search_vault", args)
 
 
-def build_prompt(question: str, hits: list[dict]) -> str:
+def build_prompt(question: str, hits: list[dict], convo: str = "") -> str:
     ctx = "\n\n".join(
         f"[Source {i+1}] {h.get('path','?')} > {h.get('section','')} "
         f"(score {h.get('score', 0):.2f})\n{h.get('content_preview','').strip()}"
@@ -128,7 +128,7 @@ def build_prompt(question: str, hits: list[dict]) -> str:
         "structurée, UNIQUEMENT à partir du contexte fourni. Cite tes sources entre "
         "crochets [Source N]. Si le contexte ne suffit pas, dis-le clairement.\n\n"
         f"# Contexte (extraits du vault Obsidian via Mnemo)\n{ctx}\n\n"
-        f"# Question\n{question}\n\n# Réponse sourcée :"
+        f"{convo}# Question\n{question}\n\n# Réponse sourcée :"
     )
 
 
@@ -176,7 +176,8 @@ def enrich(note_path: str, instruction: str, use_context: bool = True,
     return action, hits
 
 
-def prepare(question: str, limit: int = 5, prefix: str | None = None, model: str = OLLAMA_MODEL) -> dict:
+def prepare(question: str, limit: int = 5, prefix: str | None = None,
+            model: str = OLLAMA_MODEL, history: list | None = None) -> dict:
     """Récupère le contexte et construit le prompt (sans générer). Pour le streaming."""
     mnemo = MnemoMCP()
     mnemo.connect()
@@ -184,7 +185,7 @@ def prepare(question: str, limit: int = 5, prefix: str | None = None, model: str
     if not hits:
         return {"prompt": None, "model": model, "sources": [],
                 "text": "Aucun passage pertinent trouvé dans le vault."}
-    return {"prompt": build_prompt(question, hits), "model": model,
+    return {"prompt": build_prompt(question, hits, format_history(history)), "model": model,
             "sources": [h.get("path") for h in hits]}
 
 

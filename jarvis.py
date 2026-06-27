@@ -157,8 +157,10 @@ Commandes :
   /fix <problème>          l'agent infra propose une commande corrective → validation
   /historique [N]          dernières interactions journalisées
   /rappel <question>       résumé du journal en langage naturel
+  /oubli                   effacer le contexte de conversation (questions de suivi)
   /aide                    cette aide
   /quitter                 sortir
+(Les questions de suivi marchent : « et la suite ? », « détaille le point 2 ».)
 """
 
 
@@ -220,10 +222,13 @@ def _repl_infra(status: bool, problem: str = "") -> None:
     log_event("infra", "fix", f"{problem} :: {cmd}", target=mod.REMOTE_HOST, outcome=outcome)
 
 
-def _repl_handle(line: str) -> None:
+def _repl_handle(line: str, history: list) -> None:
     low = line.lower()
     if low in ("/aide", "/help", "?"):
         print(REPL_HELP)
+    elif low in ("/oubli", "/reset", "/clear"):
+        history.clear()
+        print("🧹 Contexte de conversation effacé.")
     elif low.startswith("/projet") or low.startswith("/use"):
         _repl_projects(line)
     elif low.startswith("/ecrire") or low.startswith("/write"):
@@ -241,7 +246,7 @@ def _repl_handle(line: str) -> None:
     elif line.startswith("/"):
         print("commande inconnue — /aide")
     else:
-        res = answer(line)
+        res = answer(line, history=history)
         print(f"\n🧭 {res['agent']} — {res['reason']}")
         if res.get("note"):
             print(res["note"])
@@ -250,10 +255,12 @@ def _repl_handle(line: str) -> None:
             if i == 1:
                 print("\n— Sources —")
             print(f"  [{i}] {src}")
+        history.append({"q": line, "a": res["text"]})
 
 
 def repl() -> int:
     active = get_active_project() or {}
+    history: list = []          # mémoire conversationnelle de la session
     print("🤖 Jarvis — chat local. Tape ta demande, ou /aide. (/quitter pour sortir)")
     if active.get("name"):
         print(f"   projet actif : {active['name']}")
@@ -268,7 +275,7 @@ def repl() -> int:
         if line.lower() in ("/quitter", "/quit", "/exit", "quit", "exit"):
             break
         try:
-            _repl_handle(line)
+            _repl_handle(line, history)
         except Exception as e:
             print(f"⛔ erreur : {e}")
     print("À bientôt.")
@@ -363,84 +370,57 @@ def _run_infra(question: str) -> int:
     return 0
 
 
-def answer(question: str, agent_override: str | None = None,
-           limit: int = 5, prefix: str | None = None, project: str | None = None) -> dict:
-    """Routage + exécution LECTURE, sans print. Réutilisé par la CLI et le serveur.
-    Retourne {agent, reason, text, sources, rc, note}."""
-    active = get_active_project() or {}
-    active_local = active.get("local")
-    if agent_override:
-        agent, reason = agent_override, "forcé (--agent)"
-    else:
-        agent, reason = route(question, project_given=project is not None)
-
-    if agent == "infra":
-        mod = _load(os.path.join(AGENTS_DIR, "infra", "agent.py"), "infra_agent")
-        out = mod.ask(question)
-        ok = "answer" in out
-        log_event("infra", "read", question, outcome="ok" if ok else "error")
-        return {"agent": agent, "reason": reason, "text": out.get("answer") or out.get("error", ""),
-                "sources": [], "rc": 0 if ok else 1, "note": None}
-
-    if agent == "research":
-        mod = _load(os.path.join(AGENTS_DIR, "research", "agent.py"), "research_agent")
-        out = mod.ask(question)
-        log_event("research", "read", question, outcome="ok" if out.get("sources") else "no_results")
-        return {"agent": agent, "reason": reason, "text": out["answer"],
-                "sources": out.get("sources", []), "rc": 0, "note": None}
-
-    if agent == "dev":
-        proj = project or active_local or ROOT
-        note = f"📁 {proj}"
-        if not project and active_local:
-            note = f"(projet actif : {active.get('name')})\n📁 {proj}"
-        mod = _load(os.path.join(AGENTS_DIR, "dev", "agent.py"), "dev_agent")
-        out = mod.ask(question, proj)
-        if "error" in out:
-            log_event("dev", "read", question, target=proj, outcome="error")
-            return {"agent": agent, "reason": reason, "text": out["error"], "sources": [], "rc": 1, "note": note}
-        log_event("dev", "read", question, target=proj, outcome="ok")
-        return {"agent": agent, "reason": reason, "text": out["answer"], "sources": [],
-                "rc": 0, "note": f"{note} ({out['n_files']} fichiers lus)"}
-
-    mod = _load(os.path.join(AGENTS_DIR, "obsidian", "agent.py"), "obsidian_agent")
-    out = mod.ask(question, limit=limit, prefix=prefix)
-    log_event("obsidian", "read", question, outcome="ok" if out.get("hits") else "no_results")
-    return {"agent": agent, "reason": reason, "text": out["answer"],
-            "sources": [h.get("path") for h in out.get("hits", [])], "rc": 0, "note": None}
-
-
-def prepare_answer(question: str, agent_override: str | None = None,
-                   limit: int = 5, prefix: str | None = None, project: str | None = None) -> dict:
+def prepare_answer(question: str, agent_override: str | None = None, limit: int = 5,
+                   prefix: str | None = None, project: str | None = None,
+                   history: list | None = None) -> dict:
     """Routage + récupération du contexte SANS génération (pour le streaming).
+    `history` = [{q, a}, …] pour les questions de suivi.
     Retourne {agent, reason, prompt, model, sources, note, text?, logtarget}."""
     active = get_active_project() or {}
     active_local = active.get("local")
     if agent_override:
         agent, reason = agent_override, "forcé (--agent)"
     else:
-        agent, reason = route(question, project_given=project is not None)
+        # Question de suivi : router en tenant compte du tour précédent.
+        route_q = question if not history else f"{history[-1].get('q', '')} {question}".strip()
+        agent, reason = route(route_q, project_given=project is not None)
 
     if agent == "infra":
         mod = _load(os.path.join(AGENTS_DIR, "infra", "agent.py"), "infra_agent")
-        p = mod.prepare(question)
+        p = mod.prepare(question, history=history)
         note, logtarget = None, None
     elif agent == "research":
         mod = _load(os.path.join(AGENTS_DIR, "research", "agent.py"), "research_agent")
-        p = mod.prepare(question)
+        p = mod.prepare(question, history=history)
         note, logtarget = None, None
     elif agent == "dev":
         proj = project or active_local or ROOT
         mod = _load(os.path.join(AGENTS_DIR, "dev", "agent.py"), "dev_agent")
-        p = mod.prepare(question, proj)
+        p = mod.prepare(question, proj, history=history)
         note = f"📁 {p.get('project', proj)}" + (f" ({p['n_files']} fichiers)" if p.get("n_files") else "")
         logtarget = proj
     else:
         mod = _load(os.path.join(AGENTS_DIR, "obsidian", "agent.py"), "obsidian_agent")
-        p = mod.prepare(question, limit=limit, prefix=prefix)
+        p = mod.prepare(question, limit=limit, prefix=prefix, history=history)
         note, logtarget = None, None
     return {"agent": agent, "reason": reason, "prompt": p.get("prompt"), "model": p.get("model"),
             "sources": p.get("sources", []), "text": p.get("text"), "note": note, "logtarget": logtarget}
+
+
+def answer(question: str, agent_override: str | None = None, limit: int = 5,
+           prefix: str | None = None, project: str | None = None, history: list | None = None) -> dict:
+    """Routage + génération LECTURE (sans print). Réutilisé par CLI/REPL.
+    Retourne {agent, reason, text, sources, rc, note}."""
+    prep = prepare_answer(question, agent_override, limit, prefix, project, history)
+    if prep.get("prompt"):
+        text, rc = clean_llm_output(ollama_generate(prep["prompt"], model=prep["model"])), 0
+    else:
+        text = prep.get("text") or ""
+        rc = 0 if text else 1
+    log_event(prep["agent"], "read", question, target=prep.get("logtarget"),
+              outcome="ok" if rc == 0 else "error")
+    return {"agent": prep["agent"], "reason": prep["reason"], "text": text,
+            "sources": prep.get("sources", []), "rc": rc, "note": prep.get("note")}
 
 
 def _print_history(n: int) -> int:

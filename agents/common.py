@@ -174,6 +174,25 @@ def ollama_stream(prompt: str, model: str, url: str = OLLAMA_URL,
         yield f"\n[Ollama injoignable sur {url} ({e.reason}). Lance `ollama serve`.]"
 
 
+def format_history(history: list | None, max_turns: int = 4, max_answer: int = 400) -> str:
+    """Formate les derniers échanges [{q, a}, …] en bloc de contexte pour le LLM.
+    Utilisé pour les questions de suivi ('et la suite ?', 'détaille le point 2')."""
+    if not history:
+        return ""
+    out = []
+    for t in history[-max_turns:]:
+        q = (t.get("q") or "").strip()
+        a = " ".join((t.get("a") or "").split())
+        if len(a) > max_answer:
+            a = a[:max_answer] + "…"
+        if q:
+            out.append(f"Utilisateur : {q}\nJarvis : {a}")
+    if not out:
+        return ""
+    return ("# Conversation précédente (contexte, pour résoudre les questions de suivi)\n"
+            + "\n".join(out) + "\n\n")
+
+
 def clean_llm_output(text: str) -> str:
     """Nettoie une sortie LLM destinée à un fichier (note ou code) :
     retire le raisonnement `<think>…</think>` (qwen3 en émet parfois malgré

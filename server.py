@@ -132,7 +132,8 @@ async function ask(){
   const inp=document.getElementById('q'); const q=inp.value.trim(); if(!q)return; inp.value='';
   addUser(q); const bub=loading('Jarvis réfléchit…');
   try{
-    const resp=await fetch(url('/ask','&q='+encodeURIComponent(q)));
+    const hist=thread.slice(-4).map(t=>({q:t.q,a:(t.body||'').slice(0,400)}));
+    const resp=await fetch(url('/ask','&q='+encodeURIComponent(q)+'&h='+encodeURIComponent(JSON.stringify(hist))));
     if(!resp.ok){stopTimer();bub.innerHTML='⛔ HTTP '+resp.status;return;}
     const reader=resp.body.getReader(), dec=new TextDecoder(); let buf='', meta=null;
     const paint=(final)=>{const body=buf.slice(buf.indexOf('\\x1e')+1);
@@ -195,11 +196,11 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):  # silencieux
         pass
 
-    def _stream_ask(self, q: str):
+    def _stream_ask(self, q: str, history: list | None = None):
         """Stream : routage + récupération, puis génération token-par-token.
         Format : <meta JSON>\\x1e<texte qui coule…>"""
         try:
-            prep = jarvis.prepare_answer(q)
+            prep = jarvis.prepare_answer(q, history=history)
         except Exception as e:
             prep = {"agent": "?", "reason": "erreur", "sources": [], "note": None,
                     "prompt": None, "text": f"Erreur : {e}", "logtarget": None}
@@ -246,7 +247,11 @@ class Handler(BaseHTTPRequestHandler):
                 if not q:
                     self._json(400, {"error": "paramètre q manquant"})
                     return
-                self._stream_ask(q)
+                try:
+                    history = json.loads(params.get("h", ["[]"])[0]) or []
+                except (json.JSONDecodeError, ValueError):
+                    history = []
+                self._stream_ask(q, history)
             elif u.path == "/recall":
                 q = params.get("q", [""])[0].strip()
                 self._json(200, {"text": jarvis.recall(q) if q else "paramètre q manquant"})

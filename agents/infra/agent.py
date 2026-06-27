@@ -30,7 +30,7 @@ import time
 
 AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
-from common import ollama_generate, clean_llm_output, log_event  # noqa: E402
+from common import ollama_generate, clean_llm_output, log_event, format_history  # noqa: E402
 import safe_cmd  # noqa: E402
 
 REMOTE_HOST = os.environ.get("JARVIS_REMOTE_HOST", "")  # ex. via .env : homeserv01
@@ -137,7 +137,7 @@ def print_status(host: str, snap: dict[str, str]) -> None:
     print(f"\n   Services en échec : {'aucun' if not failed else failed}")
 
 
-def build_prompt(question: str, host: str, snap: dict[str, str]) -> str:
+def build_prompt(question: str, host: str, snap: dict[str, str], convo: str = "") -> str:
     ctx = "\n".join(f"## {k}\n{v}" for k, v in snap.items() if not k.startswith("_"))
     return (
         "Tu es l'agent Infrastructure de Jarvis. Tu diagnostiques l'état d'un "
@@ -145,16 +145,18 @@ def build_prompt(question: str, host: str, snap: dict[str, str]) -> str:
         "de façon concrète et actionnable. Si tu suggères une commande corrective, "
         "présente-la comme une *proposition à valider* (ne l'exécute pas). Ne te base "
         "que sur le snapshot ; si une donnée manque, dis-le.\n\n"
-        f"# Serveur : {host}\n# Snapshot\n{ctx}\n\n# Question\n{question}\n\n# Diagnostic :"
+        f"# Serveur : {host}\n# Snapshot\n{ctx}\n\n{convo}# Question\n{question}\n\n# Diagnostic :"
     )
 
 
-def prepare(question: str, host: str = REMOTE_HOST, model: str = INFRA_MODEL) -> dict:
+def prepare(question: str, host: str = REMOTE_HOST, model: str = INFRA_MODEL,
+            history: list | None = None) -> dict:
     """Prend le snapshot et construit le prompt (sans générer). Pour le streaming."""
     snap = snapshot(host)
     if "_error" in snap:
         return {"prompt": None, "model": model, "sources": [], "text": snap["_error"]}
-    return {"prompt": build_prompt(question, host, snap), "model": model, "sources": []}
+    return {"prompt": build_prompt(question, host, snap, format_history(history)),
+            "model": model, "sources": []}
 
 
 def ask(question: str, host: str = REMOTE_HOST, model: str = INFRA_MODEL) -> dict:
