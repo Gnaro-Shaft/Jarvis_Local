@@ -81,6 +81,10 @@ PAGE = """<!doctype html><html lang=fr><meta charset=utf-8>
  <select id=proj onchange=useProj() style="flex:1;font-size:.95rem;padding:.5rem;border-radius:.6rem;border:1px solid #30363d;background:#161b22;color:#e6edf3"></select>
  <span id=projmsg style="color:#3fb950;font-size:.8rem;white-space:nowrap"></span>
 </div>
+<div class=row style="align-items:center">
+ <input id=newproj placeholder="＋ nouveau projet (nom)" style="flex:1;font-size:.9rem;padding:.5rem;border-radius:.6rem;border:1px solid #30363d;background:#161b22;color:#e6edf3">
+ <button onclick=newProj()>Créer</button>
+</div>
 <div class=row><input id=q placeholder="Pose ta question (connaissances / code / serveur)…" autofocus>
  <button class=primary onclick=ask()>Envoyer</button></div>
 <div class=tabs>
@@ -151,6 +155,15 @@ async function useProj(){
   const msg=document.getElementById('projmsg'); msg.textContent='…';
   try{const d=await(await fetch(url('/use','&name='+encodeURIComponent(name)))).json();
     msg.textContent = d.active ? ('✓ '+d.active) : ('⛔ '+(d.error||'')); setTimeout(()=>msg.textContent='',2500);
+  }catch(_){msg.textContent='erreur';}
+}
+async function newProj(){
+  const el=document.getElementById('newproj'); const name=el.value.trim(); if(!name)return;
+  const msg=document.getElementById('projmsg'); msg.textContent='…';
+  try{const d=await(await fetch(url('/new','&name='+encodeURIComponent(name)))).json();
+    if(d.error){msg.textContent='⛔ '+d.error;}
+    else{el.value='';await loadProjects();msg.textContent='✓ créé : '+d.active;}
+    setTimeout(()=>msg.textContent='',3000);
   }catch(_){msg.textContent='erreur';}
 }
 async function ask(){
@@ -302,6 +315,13 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 set_active_project({"name": e["name"], "local": e.get("local"), "remote": e.get("remote")})
                 self._json(200, {"active": e["name"], "local": e.get("local")})
+            elif u.path == "/new":
+                name = params.get("name", [""])[0].strip()
+                r = _workspace().create_project(name)
+                if "error" in r:
+                    self._json(400, {"error": r["error"]})
+                    return
+                self._json(200, {"active": r["name"], "local": r["local"]})
             else:
                 self._json(404, {"error": "route inconnue"})
         except Exception as e:  # robustesse : ne jamais crasher le serveur

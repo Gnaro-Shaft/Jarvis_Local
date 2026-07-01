@@ -152,6 +152,7 @@ Commandes :
   <texte libre>            poser une question (routage auto : connaissances / code / infra / web)
   /projet                  lister les projets (local)
   /use <nom>               définir le projet actif (contexte de l'agent code)
+  /nouveau <nom>           créer un nouveau projet (dossier + README + git) et l'activer
   /ecrire <cible> | <consigne>   proposer une écriture (note ou fichier) → validation
   /infra                   état du serveur (santé + conteneurs)
   /fix <problème>          l'agent infra propose une commande corrective → validation
@@ -231,6 +232,22 @@ def _repl_handle(line: str, history: list) -> None:
         print("🧹 Contexte de conversation effacé.")
     elif low.startswith("/projet") or low.startswith("/use"):
         _repl_projects(line)
+    elif low.startswith("/nouveau") or low.startswith("/new"):
+        name = line.split(" ", 1)[1].strip() if " " in line else ""
+        if not name:
+            print("usage : /nouveau <nom>")
+            return
+        ws = _load(os.path.join(AGENTS_DIR, "workspace", "agent.py"), "workspace_agent")
+        root = ws.LOCAL_ROOTS[0] if ws.LOCAL_ROOTS else "~"
+        try:
+            ans = input(f"Créer le projet « {name} » dans {root} ? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            ans = ""
+        if ans in ("y", "o", "yes", "oui"):
+            r = ws.create_project(name)
+            print(f"✅ {r['name']} créé et actif\n   {r['local']}" if "error" not in r else f"⛔ {r['error']}")
+        else:
+            print("⛔ Annulé.")
     elif low.startswith("/ecrire") or low.startswith("/write"):
         _repl_write(line)
     elif low.startswith("/infra"):

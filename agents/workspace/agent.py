@@ -144,16 +144,50 @@ def print_catalog(items: list[dict]) -> None:
     print(f"\n{len(items)} projets" + (f"  ·  actif : {aname}" if aname else "  ·  aucun projet actif"))
 
 
+def create_project(name: str, root: str | None = None, git: bool = True) -> dict:
+    """Crée un nouveau projet (dossier + README + git init) et le rend actif.
+    Additif et confiné : refuse si le dossier existe déjà. Retourne {name, local} ou {error}."""
+    name = (name or "").strip().strip("/")
+    if not name or "/" in name or name.startswith("."):
+        return {"error": "nom de projet invalide"}
+    root = os.path.abspath(root or (LOCAL_ROOTS[0] if LOCAL_ROOTS else os.path.expanduser("~")))
+    path = os.path.join(root, name)
+    if os.path.exists(path):
+        return {"error": f"existe déjà : {path}"}
+    try:
+        os.makedirs(path)
+        with open(os.path.join(path, "README.md"), "w", encoding="utf-8") as f:
+            f.write(f"# {name}\n\nProjet créé via Jarvis.\n")
+        if git:
+            try:
+                subprocess.run(["git", "init", "-q"], cwd=path, timeout=15)
+            except (subprocess.SubprocessError, OSError):
+                pass
+    except OSError as e:
+        return {"error": f"création impossible : {e}"}
+    set_active_project({"name": name, "local": path, "remote": None})
+    return {"name": name, "local": path}
+
+
 def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser(description="Jarvis — agent Workspace (découverte projets + projet actif)")
     p.add_argument("--local-only", action="store_true", help="ne pas interroger le serveur")
     p.add_argument("--use", metavar="NOM", default=None, help="définir le projet actif")
+    p.add_argument("--new", metavar="NOM", default=None, help="créer un nouveau projet (dossier + README + git) et le rendre actif")
     p.add_argument("--active", action="store_true", help="afficher le projet actif")
     a = p.parse_args(argv)
 
     if a.active:
         act = get_active_project()
         print(act if act else "Aucun projet actif.")
+        return 0
+
+    if a.new:
+        r = create_project(a.new)
+        if "error" in r:
+            print(f"⛔ {r['error']}", file=sys.stderr)
+            return 1
+        print(f"✅ projet créé et actif : {r['name']}\n   {r['local']}")
         return 0
 
     if a.use:
