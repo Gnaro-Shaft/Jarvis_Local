@@ -29,8 +29,12 @@ from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jarvis  # noqa: E402
-from common import ollama_stream  # noqa: E402
+from common import ollama_stream, get_active_project, set_active_project  # noqa: E402
 read_events = jarvis.read_events  # même module que le reste de Jarvis
+
+
+def _workspace():
+    return jarvis._load(os.path.join(jarvis.AGENTS_DIR, "workspace", "agent.py"), "workspace_agent")
 
 BIND = os.environ.get("JARVIS_BIND", "127.0.0.1")
 PORT = int(os.environ.get("JARVIS_PORT", "8787"))
@@ -72,6 +76,11 @@ PAGE = """<!doctype html><html lang=fr><meta charset=utf-8>
 </style>
 <h1>🤖 Jarvis</h1>
 <div class=bar>local-first · lecture seule (tailnet) · les écritures restent locales & validées</div>
+<div class=row style="align-items:center">
+ <label style="color:#8b949e;font-size:.85rem;white-space:nowrap">📁 Projet</label>
+ <select id=proj onchange=useProj() style="flex:1;font-size:.95rem;padding:.5rem;border-radius:.6rem;border:1px solid #30363d;background:#161b22;color:#e6edf3"></select>
+ <span id=projmsg style="color:#3fb950;font-size:.8rem;white-space:nowrap"></span>
+</div>
 <div class=row><input id=q placeholder="Pose ta question (connaissances / code / serveur)…" autofocus>
  <button class=primary onclick=ask()>Envoyer</button></div>
 <div class=tabs>
@@ -129,6 +138,21 @@ function renderAns(bub,meta,body){
 function saveThread(){try{localStorage.setItem('jarvis_thread',JSON.stringify(thread.slice(-30)));}catch(_){}}
 function clearThread(){stopTimer();out.innerHTML='';thread=[];try{localStorage.removeItem('jarvis_thread');}catch(_){}}
 function restoreThread(){for(const e of thread){const t=newTurn();addUser(t,e.q);const b=bubbleIn(t);renderAns(b,e.meta,e.body);decorate(b);}}
+async function loadProjects(){
+  try{const d=await(await fetch(url('/projects'))).json();
+    const sel=document.getElementById('proj'); sel.innerHTML='';
+    const o0=document.createElement('option'); o0.value=''; o0.textContent='— choisir un projet —'; sel.appendChild(o0);
+    for(const p of (d.projects||[])){const o=document.createElement('option');
+      o.value=p.name; o.textContent=p.name+' ('+(p.type||'?')+')'; if(p.name===d.active)o.selected=true; sel.appendChild(o);}
+  }catch(_){}
+}
+async function useProj(){
+  const name=document.getElementById('proj').value; if(!name)return;
+  const msg=document.getElementById('projmsg'); msg.textContent='…';
+  try{const d=await(await fetch(url('/use','&name='+encodeURIComponent(name)))).json();
+    msg.textContent = d.active ? ('✓ '+d.active) : ('⛔ '+(d.error||'')); setTimeout(()=>msg.textContent='',2500);
+  }catch(_){msg.textContent='erreur';}
+}
 async function ask(){
   const inp=document.getElementById('q'); const q=inp.value.trim(); if(!q)return; inp.value='';
   const turn=newTurn(); addUser(turn,q); const bub=loadingIn(turn,'Jarvis réfléchit…');
@@ -172,6 +196,7 @@ async function infra(){const turn=newTurn(); const bub=loadingIn(turn,'Lecture d
 document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')ask();});
 document.getElementById('rq').addEventListener('keydown',e=>{if(e.key==='Enter')recall();});
 restoreThread();
+loadProjects();
 </script>
 """
 
@@ -262,6 +287,21 @@ class Handler(BaseHTTPRequestHandler):
                 infra = jarvis._load(
                     os.path.join(jarvis.AGENTS_DIR, "infra", "agent.py"), "infra_agent")
                 self._json(200, {"snapshot": infra.snapshot()})
+            elif u.path == "/projects":
+                cat = _workspace().catalog(local_only=True)
+                self._json(200, {
+                    "projects": [{"name": e["name"], "type": e.get("type"), "local": e.get("local")}
+                                 for e in cat],
+                    "active": (get_active_project() or {}).get("name")})
+            elif u.path == "/use":
+                name = params.get("name", [""])[0].strip()
+                items = {e["name"].lower(): e for e in _workspace().catalog(local_only=True)}
+                e = items.get(name.lower())
+                if not e:
+                    self._json(404, {"error": f"projet introuvable : {name}"})
+                    return
+                set_active_project({"name": e["name"], "local": e.get("local"), "remote": e.get("remote")})
+                self._json(200, {"active": e["name"], "local": e.get("local")})
             else:
                 self._json(404, {"error": "route inconnue"})
         except Exception as e:  # robustesse : ne jamais crasher le serveur
