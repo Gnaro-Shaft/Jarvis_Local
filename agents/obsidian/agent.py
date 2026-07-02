@@ -30,7 +30,7 @@ import urllib.request
 
 AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
-from common import ollama_generate, clean_llm_output, format_history  # noqa: E402
+from common import ollama_generate, clean_llm_output, format_history, USER_AGENT  # noqa: E402
 import safe_fs  # noqa: E402
 
 MNEMO_MCP_URL = os.environ.get("MNEMO_MCP_URL", "http://localhost:8001/mcp")
@@ -58,6 +58,7 @@ class MnemoMCP:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
+            "User-Agent": USER_AGENT,
         }
         if self.session_id:
             headers["mcp-session-id"] = self.session_id

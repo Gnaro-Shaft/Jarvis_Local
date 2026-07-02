@@ -27,7 +27,7 @@ import urllib.request
 
 AGENTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, AGENTS_DIR)
-from common import ollama_generate, clean_llm_output, format_history  # noqa: E402
+from common import ollama_generate, clean_llm_output, format_history, USER_AGENT  # noqa: E402
 
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8888").rstrip("/")
 RESEARCH_MODEL = os.environ.get("RESEARCH_MODEL", "qwen3:32b")
@@ -36,7 +36,7 @@ RESEARCH_MODEL = os.environ.get("RESEARCH_MODEL", "qwen3:32b")
 def search(query: str, n: int = 6, timeout: int = 15) -> dict:
     """Recherche web via SearXNG (API JSON). Retourne {results:[...]} ou {error:...}."""
     url = f"{SEARXNG_URL}/search?" + urllib.parse.urlencode({"q": query, "format": "json"})
-    req = urllib.request.Request(url, headers={"User-Agent": "Jarvis/0.1"})
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             data = json.loads(r.read())

@@ -31,6 +31,13 @@ _load_local_env()
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
+# User-Agent honnête et identifiable (jamais déguisé en navigateur) pour toute
+# requête HTTP sortante de Jarvis. Inclut l'URL du projet pour être contactable.
+USER_AGENT = os.environ.get(
+    "JARVIS_USER_AGENT",
+    "Jarvis-Local/0.1 (+https://github.com/Gnaro-Shaft/Jarvis_Local)",
+)
+
 # --- État partagé de Jarvis (ex. projet actif) : J_A_R_V_I_S/.jarvis/state.json --
 
 
@@ -133,7 +140,7 @@ def ollama_generate(
     req = urllib.request.Request(
         f"{url}/api/generate",
         data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT},
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -153,7 +160,7 @@ def ollama_stream(prompt: str, model: str, url: str = OLLAMA_URL,
     }
     req = urllib.request.Request(
         f"{url}/api/generate", data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT},
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
