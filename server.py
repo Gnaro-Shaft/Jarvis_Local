@@ -71,6 +71,10 @@ PAGE = """<!doctype html><html lang=fr><meta charset=utf-8>
  pre{position:relative;background:#0b0f17;border:0.5px solid #30363d;border-radius:.5rem;padding:.7rem .8rem;overflow:auto;margin:.5rem 0}
  .cp{position:absolute;top:6px;right:6px;font-size:.72rem;padding:.12rem .45rem;opacity:.55;cursor:pointer}
  .cp:hover{opacity:1}
+ .rb{margin-top:8px;align-self:flex-start;font-size:.72rem;padding:.15rem .5rem;opacity:.6;cursor:pointer}
+ .rb:hover{opacity:1}
+ #replybar{display:none;align-items:center;gap:8px;background:#1f6feb18;border-left:2px solid #1f6feb;border-radius:.4rem;padding:.4rem .6rem;margin:.4rem 0;font-size:.82rem;color:#8b949e}
+ #replybar button{padding:.05rem .4rem;font-size:.75rem}
  pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem;background:none;padding:0}
  :not(pre)>code{font-family:ui-monospace,monospace;background:#30363d66;padding:.1rem .35rem;border-radius:.3rem;font-size:.88em}
 </style>
@@ -85,6 +89,7 @@ PAGE = """<!doctype html><html lang=fr><meta charset=utf-8>
  <input id=newproj placeholder="＋ nouveau projet (nom)" style="flex:1;font-size:.9rem;padding:.5rem;border-radius:.6rem;border:1px solid #30363d;background:#161b22;color:#e6edf3">
  <button onclick=newProj()>Créer</button>
 </div>
+<div id=replybar>↩ En réponse à : <span id=replysnip style="flex:1;color:#e6edf3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span> <button onclick=cancelReply()>✕</button></div>
 <div class=row><input id=q placeholder="Pose ta question (connaissances / code / serveur)…" autofocus>
  <button class=primary onclick=ask()>Envoyer</button></div>
 <div class=tabs>
@@ -134,6 +139,13 @@ function decorate(bub){
     const b=document.createElement('button');b.className='cp';b.textContent='copier';
     b.onclick=()=>copyText(pre.querySelector('code').innerText,b);pre.appendChild(b);});
 }
+let replyTarget=null;
+function replyTo(q,a){replyTarget={q,a};
+  document.getElementById('replybar').style.display='flex';
+  document.getElementById('replysnip').textContent=(a||'').replace(/\\s+/g,' ').slice(0,90);
+  document.getElementById('q').focus();}
+function cancelReply(){replyTarget=null;document.getElementById('replybar').style.display='none';}
+function addReply(bub,q,a){const b=document.createElement('button');b.className='rb';b.textContent='↩ rebondir';b.onclick=()=>replyTo(q,a);bub.appendChild(b);}
 function renderAns(bub,meta,body){
   const s=meta.sources&&meta.sources.length?'<div class=meta>sources: '+esc(meta.sources.join(', '))+'</div>':'';
   const n=meta.note?'<div class=meta>'+esc(meta.note)+'</div>':'';
@@ -141,7 +153,7 @@ function renderAns(bub,meta,body){
 }
 function saveThread(){try{localStorage.setItem('jarvis_thread',JSON.stringify(thread.slice(-30)));}catch(_){}}
 function clearThread(){stopTimer();out.innerHTML='';thread=[];try{localStorage.removeItem('jarvis_thread');}catch(_){}}
-function restoreThread(){for(const e of thread){const t=newTurn();addUser(t,e.q);const b=bubbleIn(t);renderAns(b,e.meta,e.body);decorate(b);}}
+function restoreThread(){for(const e of thread){const t=newTurn();addUser(t,e.q);const b=bubbleIn(t);renderAns(b,e.meta,e.body);decorate(b);addReply(b,e.q,e.body);}}
 async function loadProjects(){
   try{const d=await(await fetch(url('/projects'))).json();
     const sel=document.getElementById('proj'); sel.innerHTML='';
@@ -171,12 +183,13 @@ async function ask(){
   const turn=newTurn(); addUser(turn,q); const bub=loadingIn(turn,'Jarvis réfléchit…');
   try{
     const hist=thread.slice(-4).map(t=>({q:t.q,a:(t.body||'').slice(0,400)}));
+    if(replyTarget){hist.push({q:replyTarget.q||'(extrait cité)',a:(replyTarget.a||'').slice(0,600)});cancelReply();}
     const resp=await fetch(url('/ask','&q='+encodeURIComponent(q)+'&h='+encodeURIComponent(JSON.stringify(hist))));
     if(!resp.ok){stopTimer();bub.innerHTML='⛔ HTTP '+resp.status;return;}
     const reader=resp.body.getReader(), dec=new TextDecoder(); let buf='', meta=null;
     const paint=(final)=>{const body=buf.slice(buf.indexOf('\\x1e')+1);
       renderAns(bub,meta,body);
-      if(final){decorate(bub);thread.push({q,meta,body});saveThread();}};
+      if(final){decorate(bub);addReply(bub,q,body);thread.push({q,meta,body});saveThread();}};
     while(true){const {value,done:fin}=await reader.read(); if(fin)break;
       buf+=dec.decode(value,{stream:true});
       if(!meta){const i=buf.indexOf('\\x1e'); if(i<0)continue; meta=JSON.parse(buf.slice(0,i)); stopTimer();}
