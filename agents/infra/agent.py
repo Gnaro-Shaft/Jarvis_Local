@@ -44,6 +44,7 @@ echo '@@@mem';     free -h 2>/dev/null | head -2
 echo '@@@disk';    df -h / /data "$HOME" 2>/dev/null | sort -u
 echo '@@@docker';  (docker ps --format '{{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null || echo 'docker indisponible')
 echo '@@@failed';  (systemctl --failed --no-legend 2>/dev/null | head || true)
+echo '@@@thermal'; { echo "mbpfan=$(systemctl is-active mbpfan 2>/dev/null)"; sensors 2>/dev/null | grep -iE 'fan[0-9]*:|Package id 0|Tctl|Composite' | head -3; }
 echo '@@@top';     (ps -eo pmem,pcpu,comm --sort=-pmem 2>/dev/null | head -6)
 """
 
@@ -135,6 +136,11 @@ def print_status(host: str, snap: dict[str, str]) -> None:
                 print(f"     {cols[0][:22]:22} {cols[1]}")
     failed = snap.get("failed", "").strip()
     print(f"\n   Services en échec : {'aucun' if not failed else failed}")
+    th = snap.get("thermal", "").strip()
+    if th:
+        print("\n   🌡️  Thermique / ventilo :")
+        for l in th.splitlines():
+            print(f"     {l.replace('mbpfan=', 'mbpfan : ')}")
 
 
 def build_prompt(question: str, host: str, snap: dict[str, str], convo: str = "") -> str:
