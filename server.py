@@ -216,7 +216,8 @@ async function infra(){const turn=newTurn(); const bub=loadingIn(turn,'Lecture d
     let dk=(s.docker||'').split('\\n').filter(Boolean).map(l=>{const p=l.split('\\t');
       const up=(p[1]||'').toLowerCase();const cl=up.includes('healthy')&&!up.includes('unhealthy')?'ok':(up.includes('unhealthy')?'ko':'');
       return '<tr><td>'+esc(p[0]||l)+'</td><td class="'+cl+'">'+esc(p[1]||'')+'</td></tr>';}).join('');
-    bub.innerHTML='<b>'+esc(s.uname||'')+'</b>\\n'+esc(s.uptime||'')+'\\n\\n'+esc((s.mem||'').split('\\n').pop())+'<table>'+dk+'</table>';
+    const therm=s.thermal?('\\n\\n🌡️ '+esc(s.thermal).replace('mbpfan=','mbpfan : ')):'';
+    bub.innerHTML='<b>'+esc(s.uname||'')+'</b>\\n'+esc(s.uptime||'')+'\\n\\n'+esc((s.mem||'').split('\\n').pop())+therm+'<table>'+dk+'</table>';
   }catch(e){stopTimer();bub.innerHTML='erreur';}
 }
 document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')ask();});
